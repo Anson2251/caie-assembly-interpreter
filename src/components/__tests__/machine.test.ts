@@ -21,11 +21,12 @@ suite('Interpreter-Core-Machine', () => {
             operand: 0b00000000
         },
         {
-            opcode: 0b00000111, // END (End the program)
+            opcode: 0b00110011, // END (End the program)
             operand: 0b00000000
         }
     ]
 
+    vm.verbose = false;
     vm.addDevice("output", outputDevice);
 
     await vm.execute(instructions);

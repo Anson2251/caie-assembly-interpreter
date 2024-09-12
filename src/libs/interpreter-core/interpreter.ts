@@ -46,3 +46,15 @@ export const MNEMONIC_COMPARE = {
     "CMP_IMMEDIATE":    0b01000001,  // Compare ACC with the number n (immediate addressing)
     "CMI_ADDRESS":      0b01000010   // Compare ACC with contents of the contents of the specified address (indirect addressing)
 };
+
+const ALL_MNEMONICS = {
+    ...MNEMONIC_DATA_MOVE,
+    ...MNEMONIC_IO,
+    ...MNEMONIC_ARITHMETIC,
+    ...MNEMONIC_BRANCHING,
+    ...MNEMONIC_COMPARE
+}
+
+export function lookUpMnemonic(opcode: number) {
+    return Object.keys(ALL_MNEMONICS).find((key) => (ALL_MNEMONICS as any)[key] === opcode) || "UNKNOWN";
+}

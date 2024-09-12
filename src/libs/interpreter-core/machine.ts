@@ -1,5 +1,5 @@
 import register, { type RegisterNameType } from "./register";
-import { type instructionPieceType,MNEMONIC_DATA_MOVE, MNEMONIC_IO, MNEMONIC_ARITHMETIC, MNEMONIC_BRANCHING, MNEMONIC_COMPARE } from "./interpreter";
+import { type instructionPieceType, lookUpMnemonic, MNEMONIC_DATA_MOVE, MNEMONIC_IO, MNEMONIC_ARITHMETIC, MNEMONIC_BRANCHING, MNEMONIC_COMPARE } from "./interpreter";
 
 
 export const StatusCodes = {
@@ -16,6 +16,7 @@ export class machine {
     private end: boolean = true;
     private inputDevice: () => Promise<number>
     private outputDevice: (value: number) => Promise<void> 
+    verbose: boolean = false
     private sp: {
         /** Carry */
         c: number,
@@ -98,155 +99,190 @@ export class machine {
 
     async execute(instructions: instructionPieceType[]) {
         for(let i = 0; i < instructions.length; i++){
-            this.writeInstruction(i, instructions[i]);
+            this.storeInstructionInMemory(i*2, instructions[i]);
         }
 
         this.registers.PC.setVal(0);
 
         for(let i = 0; i < instructions.length; i++){
             await this.executeInstruction(this.registers.PC.getVal());
-            this.dump();
-            console.log("-------------------------------");
+            this.logMemoryAndRegisters();
+            if(this.verbose) console.log("");
             if(this.end) break;
-            this.registers.PC.setVal(this.registers.PC.getVal() + 1);
         }
     }
 
-    dump(){
-        console.log("---DUMP-BEGIN---")
+    logMemoryAndRegisters(){
+        if(!this.verbose) return;
+        console.log("---MEMORY-BEGIN---")
         Object.keys(this.memory).map(i => parseInt(i)).sort().forEach((index) => {
-            console.log(index, this.memory[index].toString(2).padStart(16, "0"));
+            console.log(`${index} | ${this.memory[index].toString(2).padStart(this.bits, "0")}`);
         });
+        console.log("----MEMORY-END----")
 
+        console.log("--REGISTER-BEGIN--")
         Object.keys(this.registers).forEach((key) => {
-            console.log(key, this.registers[key as RegisterNameType].getVal().toString(2).padStart(this.bits, "0"));
+            console.log(`${key.padStart(3, " ")}: ${this.registers[key as RegisterNameType].getVal().toString(2).padStart(this.bits, "0")}`);
         })
-        console.log("---DUMP-END---")
+        console.log("---REGISTER-END---")
     }
 
-    writeInstruction(address: number, instruction: instructionPieceType){
-        this.memory[address] = parseInt(instruction.opcode.toString(2).padStart(8, "0") + instruction.operand.toString(2).padStart(this.bits, "0"), 2);
-        console.log(instruction.opcode.toString(2).padStart(8, "0") + instruction.operand.toString(2).padStart(this.bits, "0"))
+    storeInstructionInMemory(address: number, instruction: instructionPieceType) {
+        this.memory[address] = instruction.opcode;
+        this.memory[address + 1] = instruction.operand;
     }
 
     private fetchDecodeInstruction(address: number): instructionPieceType {
-        console.log("Fetching", address)
-        const instruction = this.readMemory(address).toString(2).padStart(8 + this.bits, "0");
-        console.log("Decoding", instruction)
+        if(this.verbose) console.log("Fetching instruction at address", address)
         const decoded: instructionPieceType = {
-            opcode: parseInt(instruction.slice(0, 8), 2),
-            operand: parseInt(instruction.slice(8, 8 + this.bits), 2),
+            opcode: this.memory[address],
+            operand: this.memory[address + 1]
         }
+        if(this.verbose) console.log(`Decoded: [OPCODE:${lookUpMnemonic(decoded.opcode)}(${decoded.opcode.toString(2).padStart(8, "0")}), OPERAND:${decoded.operand.toString(2).padStart(this.bits, "0")}]`)
         return decoded
     }
 
     async executeInstruction(address: number) {
         this.end = false;
         const instruction = this.fetchDecodeInstruction(address);
-        console.log(instruction);
+        let flagJumped = false;
         switch(instruction.opcode){
+            // Data Move
             case MNEMONIC_DATA_MOVE.LDM: {
+                // Load the number into ACC (immediate addressing)
                 this.registers.ACC.setVal(instruction.operand);
                 break;
             }
             case MNEMONIC_DATA_MOVE.LDD: {
+                // Load the contents of the specified address into ACC (direct/absolute addressing)
                 this.registers.ACC.setVal(this.readMemory(instruction.operand));
                 break;
             }
             case MNEMONIC_DATA_MOVE.LDI: {
+                // Load the contents of the contents of the given address into ACC (indirect addressing)
                 const location = this.readMemory(instruction.operand);
                 this.registers.ACC.setVal(this.readMemory(location));
                 break;
             }
             case MNEMONIC_DATA_MOVE.LDX: {
+                // Load the contents of the calculated address into ACC (indexed addressing)
                 const calculatedAddress = this.registers.ACC.getVal() + this.registers.IX.getVal();
                 this.registers.ACC.setVal(this.readMemory(calculatedAddress));
                 break;
             }
             case MNEMONIC_DATA_MOVE.LDR: {
+                // Load the number into IX (immediate addressing) or ACC into IX
                 this.registers.IX.setVal(instruction.operand);
                 break;
             }
             case MNEMONIC_DATA_MOVE.MOV: {
+                // Move the contents of ACC to IX
                 this.registers.IX.setVal(this.registers.ACC.getVal());
                 break;
             }
             case MNEMONIC_DATA_MOVE.STO: {
+                // Store the contents of ACC into the specified address (direct/absolute addressing)
                 this.setMemory(this.registers.MAR.getVal(), this.registers.ACC.getVal());
                 break;
             }
             case MNEMONIC_DATA_MOVE.END: {
+                // Return control to the operating system
                 break;
             }
 
+            // Input/Output
             case MNEMONIC_IO.IN: {
+                // Key in a character and store its ASCII value in ACC
                 this.registers.ACC.setVal(await this.inputDevice());
                 break;
             }
             case MNEMONIC_IO.OUT: {
+                // Output to the screen the character whose ASCII value is stored in ACC
                 this.outputDevice(this.registers.ACC.getVal());
                 break;
             }
 
+            // Arithmetic
             case MNEMONIC_ARITHMETIC.ADD_ADDRESS: {
+                // Add the contents of the specified address to ACC (direct/absolute addressing)
                 this.registers.ACC.setVal(this.registers.ACC.getVal() + this.readMemory(instruction.operand));
                 break;
             }
             case MNEMONIC_ARITHMETIC.ADD_IMMEDIATE: {
+                // Add the denary number n to ACC (immediate addressing)
                 this.registers.ACC.setVal(this.registers.ACC.getVal() + instruction.operand);
                 break;
             }
             case MNEMONIC_ARITHMETIC.SUB_ADDRESS: {
+                // Subtract the contents of the specified address from ACC
                 this.registers.ACC.setVal(this.registers.ACC.getVal() - this.readMemory(instruction.operand));
                 break;
             }
             case MNEMONIC_ARITHMETIC.SUB_IMMEDIATE: {
+                // Subtract the number n from ACC (immediate addressing)
                 this.registers.ACC.setVal(this.registers.ACC.getVal() - instruction.operand);
                 break;
             }
 
+            // Branching
             case MNEMONIC_BRANCHING.JMP: {
-                this.registers.PC.setVal(instruction.operand-1); // reserve one for pc increment
+                // Jump to the specified address
+                flagJumped = true;
+                this.registers.PC.setVal(instruction.operand); // reserve one for pc increment
                 break;
             }
 
             case MNEMONIC_BRANCHING.JPE: {
+                // Jump to the specified address if comparison is True
                 if(this.registers.ACC.getVal() === 0){
-                    this.registers.PC.setVal(instruction.operand-1);
+                    flagJumped = true;
+                    this.registers.PC.setVal(instruction.operand);
                 }
                 break;
             }
 
             case MNEMONIC_BRANCHING.JPN: {
+                // Jump to the specified address if comparison is False
                 if(this.registers.ACC.getVal() !== 0){
-                    this.registers.PC.setVal(instruction.operand-1);
+                    flagJumped = true;
+                    this.registers.PC.setVal(instruction.operand);
                 }
                 break;
             }
 
             case MNEMONIC_BRANCHING.END: {
+                // Return control to the operating system
                 this.end = true;
                 break;
             }
 
+            // Comparison
             case MNEMONIC_COMPARE.CMP_ADDRESS: {
+                // Compare ACC with contents of the specified address (direct/absolute addressing)
                 const val = this.registers.ACC.getVal() - this.readMemory(instruction.operand);
                 this.setSPNum(val);
                 break;
             }
             case MNEMONIC_COMPARE.CMP_IMMEDIATE: {
+                // Compare ACC with the number n (immediate addressing)
                 const val = this.registers.ACC.getVal() - instruction.operand;
                 this.setSPNum(val);
                 break;
             }
             case MNEMONIC_COMPARE.CMI_ADDRESS: {
+                // Compare ACC with contents of the contents of the specified address (indirect addressing)
                 const val = this.registers.ACC.getVal() - this.readMemory(this.readMemory(instruction.operand));
                 this.setSPNum(val);
                 break;
             }
 
-            default:
-                throw new Error("Invalid instruction");
+            default: {
+                throw new Error("Invalid instruction opcode:" + instruction.opcode.toString(16));
+            }
+        }
+
+        if(!flagJumped){
+            this.registers.PC.setVal(this.registers.PC.getVal() + 2);
         }
     }
 }
