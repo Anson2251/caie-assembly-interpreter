@@ -10,7 +10,7 @@ export const StatusCodes = {
 };  
 
 export class machine {
-    private registers: Record<RegisterNameType, register>;
+    registers: Record<RegisterNameType, register>;
     private bits: number;
     private memory: Record<number, number> = {};
     private end: boolean = true;
@@ -69,12 +69,12 @@ export class machine {
     }
 
     setMemory(address: number, value: number) {
-        value = parseInt(value.toString(2).slice(0, this.bits), 2);
+        value = parseInt(value.toString(2).slice(0, this.bits), 2); // deal with overflow
         this.memory[address] = value;
     }
 
     readMemory(address: number) {
-        return this.memory[address];
+        return this.memory[address] || 0;
     }
 
     private setSP(field: keyof typeof this.sp, val: number) {
