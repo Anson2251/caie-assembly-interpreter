@@ -26,18 +26,18 @@ export const MNEMONIC_DATA_MOVE = {
 
 // Mnemonic for IO
 export const MNEMONIC_IO = {
-    "IN":   0x10,   // Key in a character and store its ASCII value in ACC
-    "OUT":  0x11   // Output to the screen the character whose ASCII value is stored in ACC
+    "IN": 0x10,   // Key in a character and store its ASCII value in ACC
+    "OUT": 0x11   // Output to the screen the character whose ASCII value is stored in ACC
 };
 
 // Mnemonic for arithmetic
 export const MNEMONIC_ARITHMETIC = {
-    "ADD_ADDRESS":      0x20,  // Add the contents of the specified address to ACC (direct/absolute addressing)
-    "ADD_IMMEDIATE":    0x21,  // Add the denary number n to ACC (immediate addressing)
-    "SUB_ADDRESS":      0x22,  // Subtract the contents of the specified address from ACC
-    "SUB_IMMEDIATE":    0x23,  // Subtract the number n from ACC (immediate addressing)
-    "INC":              0x24,  // Add 1 to the contents of the register (ACC or IX)
-    "DEC":              0x25   // Subtract 1 from the contents of the register (ACC or IX)
+    "ADD_ADDRESS": 0x20,  // Add the contents of the specified address to ACC (direct/absolute addressing)
+    "ADD_IMMEDIATE": 0x21,  // Add the denary number n to ACC (immediate addressing)
+    "SUB_ADDRESS": 0x22,  // Subtract the contents of the specified address from ACC
+    "SUB_IMMEDIATE": 0x23,  // Subtract the number n from ACC (immediate addressing)
+    "INC": 0x24,  // Add 1 to the contents of the register (ACC or IX)
+    "DEC": 0x25   // Subtract 1 from the contents of the register (ACC or IX)
 };
 
 // Mnemonic for branching
@@ -51,9 +51,9 @@ export const MNEMONIC_BRANCHING = {
 
 // Mnemonic for comparison
 export const MNEMONIC_COMPARE = {
-    "CMP_ADDRESS":      0x40,  // Compare ACC with contents of the specified address (direct/absolute addressing)
-    "CMP_IMMEDIATE":    0x41,  // Compare ACC with the number n (immediate addressing)
-    "CMI":              0x42   // Compare ACC with contents of the contents of the specified address (indirect addressing)
+    "CMP_ADDRESS": 0x40,  // Compare ACC with contents of the specified address (direct/absolute addressing)
+    "CMP_IMMEDIATE": 0x41,  // Compare ACC with the number n (immediate addressing)
+    "CMI": 0x42   // Compare ACC with contents of the contents of the specified address (indirect addressing)
 };
 
 const ALL_MNEMONICS = {
@@ -68,144 +68,225 @@ export function lookUpMnemonic(opcode: number) {
     return Object.keys(ALL_MNEMONICS).find((key) => (ALL_MNEMONICS as any)[key] === opcode) || "UNKNOWN";
 }
 
+/**
+ * Assembles the given assembly language code into machine code.
+ * 
+ * @param code The assembly language code to assemble.
+ * @returns The assembled machine code.
+ */
 export function assembler(code: string) {
-    const lines = code.trim().replace("\r", "").split("\n")
-        .filter(line => line !== "") // ignore empty line
-        .map((line) => line.split(";")[0].trim().replace(/\s+/g, " ")) // remove comments & space
-        .map((line) => {
-            const newLine = line.split(" ").map(token => token.trim());
+    const lines = preprocessCode(code);
+    const labels = extractLabels(lines);
+    const intermediateCode = parseIntermediateCode(lines);
+    const finalCode = generateMachineCode(intermediateCode, labels);
 
-            if (newLine.length > 3) {
-                return newLine.slice(0, 3);
-              }
-              
-              return newLine.concat(Array(3 - newLine.length).fill(""));
-        }); // separate label, opcode & operand
-    console.log(lines)
+    console.log(finalCode);
+    return finalCode;
+}
 
-    const labels: {label: string, index: number}[] = [];
+/**
+ * Preprocesses the given assembly language code.
+ * 
+ * @param code The assembly language code to preprocess.
+ * @returns The preprocessed code, split into lines and with comments and excess whitespace removed.
+ */
+function preprocessCode(code: string): string[][] {
+    return code.trim().replace("\r", "").split("\n")
+        .filter(line => line !== "")  // Ignore empty lines
+        .map((line) => line.split(";")[0].trim().replace(/\s+/g, " "))  // Remove comments and excess whitespace
+        .map((line) => tokenizeLine(line));
+}
 
+/**
+ * Tokenizes the given line of assembly language code into an array of at most 3 strings.
+ * 
+ * @param line The line of assembly language code to tokenize.
+ * @returns An array of strings, where the first element is the mnemonic, the second element is the operand, and the third element is the comment. If the line does not contain a comment, the third element is an empty string. If the line does not contain an operand, the second element is an empty string.
+ */
+function tokenizeLine(line: string): string[] {
+    const tokens = line.split(" ").map(token => token.trim());
+    return tokens.length > 3 ? tokens.slice(0, 3) : tokens.concat(Array(3 - tokens.length).fill(""));
+}
+
+/**
+ * Extracts labels from the given assembly language code.
+ * 
+ * @param lines The preprocessed assembly language code.
+ * @returns An array of objects, where each object has a "label" property and an "index" property. The "label" property is the label name, and the "index" property is the index of the instruction that follows the label.
+ */
+export function extractLabels(lines: string[][]): { label: string, index: number }[] {
+    const labels: { label: string, index: number }[] = [];
+    let instructionIndex = 0;
+
+    lines.forEach((line) => {
+        if (isLabel(line[0])) {
+            const label = line[0].slice(0, -1);
+            labels.push({ label, index: instructionIndex });
+        } else {
+            instructionIndex++;
+        }
+    });
+
+    return labels;
+}
+
+/**
+ * Checks if the given token is a label.
+ * 
+ * A label is a token that consists only of letters (a-z or A-Z), and is followed by a colon (:).
+ * 
+ * @param token The token to check.
+ * @returns True if the token is a label, false otherwise.
+ */
+function isLabel(token: string): boolean {
+    return /^[a-zA-Z]+:$/.test(token);
+}
+
+/**
+ * Parses the given assembly language code into an array of intermediate instructions.
+ * 
+ * Each intermediate instruction is an object with three properties: "label", "opcode", and "operand".
+ * 
+ * - `label` property is the label associated with the instruction
+ * - `opcode` property is the opcode of the instruction
+ * - `operand` property is the operand of the instruction
+ * 
+ * @param lines The preprocessed assembly language code.
+ * @returns An array of intermediate instructions.
+ */
+function parseIntermediateCode(lines: string[][]): intermediateInstructionType[] {
     const intermediateCode: intermediateInstructionType[] = [];
 
-    const abbreviated = [ "CMP", "ADD", "SUB" ];
-    const valuePrefix = [ "B", "#", "&" ]
+    for (const line of lines) {
+        if (!isLabel(line[0])) {
+            line.unshift("");  // If no label, add an empty string to keep line structure consistent
+        }
 
-    // const intermediateCode = [];
-    for (let i = 0; i < lines.length; i++) {
         const instruction: intermediateInstructionType = {
-            label: "",
-            opcode: "",
-            operand: ""
-        }
+            label: line[0],
+            opcode: resolveOpcode(line[1], line[2]),
+            operand: parseOperand(line[2])
+        };
 
-        if(/^[a-zA-z]+:$/.test(lines[i][0])){
-            const label = lines[i][0].slice(0, -1);
-            labels.push({label: label, index: 0});
-        }
-        else {
-            lines[i].unshift("")
-        }
-
-        if(/^[a-zA-z]+$/.test(lines[i][1])){
-            if(abbreviated.includes(lines[i][1])){
-                if(valuePrefix.includes(lines[i][2][0])){
-                    instruction.opcode = `${lines[i][1]}_IMMEDIATE`;
-                }
-                else {
-                    instruction.opcode = `${lines[i][1]}_ADDRESS`;
-                }
-            }
-            else {
-                instruction.opcode = lines[i][1]
-            }
-
-            if(lines[i][2] && valuePrefix.includes(lines[i][2][0])){
-                switch(lines[i][2][0]){
-                    case "#":
-                        instruction.operand = parseInt(lines[i][2].slice(1), 10)
-                        break;
-                    case "&":
-                        instruction.operand = parseInt(lines[i][2].slice(1), 16)
-                        break;
-                    case "B":
-                        instruction.operand = parseInt(lines[i][2].slice(1), 2)
-                        break;
-                }
-            }
-            else {
-                if(RegisterTypes.includes(lines[i][2])){
-                    instruction.operand = RegisterTypes.indexOf(lines[i][2]);
-                }
-                else{
-                instruction.operand = lines[i][2];
-                }
-            }
-        }
-
-        if(valuePrefix.includes(lines[i][1][0])){
-            switch(lines[i][1][0]){
-                case "#": {
-                    instruction.operand = parseInt(lines[i][1].slice(1), 10)
-                    break;
-                }
-                case "&": {
-                    instruction.operand = parseInt(lines[i][1].slice(1), 16)
-                    break;
-                }
-                case "B": {
-                    instruction.operand = parseInt(lines[i][1].slice(1), 2)
-                    break;
-                }
-            }  
-        }
-
-        if(instruction.operand === "") instruction.operand = 0; // set operand to 0 if not specified
-
-        instruction.label = lines[i][0]
-        intermediateCode.push(instruction)
+        intermediateCode.push(instruction);
     }
 
-    for(let i  = 0; i < labels.length; i++){
-        labels[i].index = intermediateCode.findIndex((instruction) => instruction.label.slice(0, -1) === labels[i].label);
+    return intermediateCode;
+}
+
+/**
+ * Resolves the given opcode into its full form.
+ * 
+ * Abbreviated opcodes (CMP, ADD, SUB) are resolved based on the presence of a value prefix
+ * in the operand. If the operand contains a value prefix (B, #, &), the opcode is in its
+ * immediate form. Otherwise, it is in its address form.
+ * 
+ * All other opcodes are returned unchanged.
+ * 
+ * @param opcode The opcode to resolve.
+ * @param operand The operand associated with the opcode.
+ * @returns The resolved opcode.
+ */
+function resolveOpcode(opcode: string, operand: string): string {
+    const abbreviated = ["CMP", "ADD", "SUB"];
+    const valuePrefix = ["B", "#", "&"];
+
+    if (abbreviated.includes(opcode)) {
+        return valuePrefix.includes(operand[0]) ? `${opcode}_IMMEDIATE` : `${opcode}_ADDRESS`;
     }
 
-    console.log(labels)
+    return opcode;
+}
 
+/**
+ * Parses the given operand string into a number or label.
+ * 
+ * If the operand string contains a value prefix (B, #, &), the operand is interpreted
+ * as a number in the given base.
+ * 
+ * If the operand string is a register name, the register's index is returned.
+ * 
+ * Otherwise, the operand is returned as a string, which may be a label that will be
+ * resolved later.
+ * 
+ * @param operand The operand string to parse.
+ * @returns The parsed operand, which may be a number or a string.
+ */
+function parseOperand(operand: string): number | string {
+    const valuePrefix = { "#": 10, "&": 16, "B": 2 };
 
-    // LINKING
-    const labelList = labels.map((label) => label.label);
-    const finalCode = intermediateCode.map((instruction) => {
+    if (!operand) return 0;  // Default operand is 0
+
+    const prefix = operand[0];
+    if (Object.keys(valuePrefix).includes(prefix)) {
+        return parseInt(operand.slice(1), (valuePrefix as any)[prefix]);
+    }
+
+    if (RegisterTypes.includes(operand)) {
+        return RegisterTypes.indexOf(operand);
+    }
+
+    return operand;  // Operand could be a label, which will be resolved later
+}
+
+/**
+ * Generates machine code from the given intermediate code and labels.
+ * 
+ * Replaces opcodes with their full form, and resolves any labels in the operand.
+ * 
+ * @param intermediateCode The intermediate code to generate machine code for.
+ * @param labels The labels and their corresponding instruction indices.
+ * @returns The generated machine code.
+ */
+function generateMachineCode(intermediateCode: intermediateInstructionType[], labels: { label: string, index: number }[]): instructionPieceType[] {
+    const labelMap = labels.reduce((acc, label) => {
+        acc[label.label] = label.index;
+        return acc;
+    }, {} as Record<string, number>);
+
+    return intermediateCode.map(instruction => {
         const newInstruction: instructionPieceType = {
-            opcode: 0,
-            operand: 0
-        }
-        const currentOperand = instruction.operand;
+            opcode: resolveMnemonic(instruction.opcode),
+            operand: resolveOperand(instruction.operand, labelMap)
+        };
+        return newInstruction;
+    });
+}
 
-        if(typeof currentOperand === "string" && labelList.includes(currentOperand)){
-            const address = labels.find((label) => label.label === instruction.operand)?.index;
-            if(address){
-                newInstruction.operand = address;
-            }
-            else {
-                throw new Error(`Label ${currentOperand} not found`)
-            }
-        }
-        else {
-            if(typeof currentOperand === "number"){
-                newInstruction.operand = currentOperand
-            }
-            else {
-                throw new Error(`Invalid operand ${currentOperand}`)
-            }
-        }
-        console.log(instruction)
-        const correspondingOpcode = (ALL_MNEMONICS as any)[instruction.opcode];
-        newInstruction.opcode = correspondingOpcode !== undefined ? correspondingOpcode : 0xFF;
+/**
+ * Resolves the given opcode string into its corresponding machine code value.
+ * 
+ * If the opcode is found in the ALL_MNEMONICS object, its corresponding machine code value is returned.
+ * Otherwise, `0xFF` is returned to indicate an invalid opcode.
+ * 
+ * @param opcode The opcode string to resolve.
+ * @returns The resolved machine code value.
+ */
+function resolveMnemonic(opcode: string): number {
+    return (ALL_MNEMONICS as any)[opcode] !== undefined ? (ALL_MNEMONICS as any)[opcode] : 0xFF;
+}
 
-        return newInstruction
-    })
+/**
+ * Resolves the given operand, which may be a string or a number, into a machine code value.
+ * 
+ * @param operand The operand to resolve, which may be a string or a number.
+ * @param labelMap The label map to look up string operands in.
+ * @returns The resolved machine code value.
+ */
+function resolveOperand(operand: string | number, labelMap: Record<string, number>): number {
+    if (typeof operand === "string") {
+        if (labelMap[operand] !== undefined) {
+            return labelMap[operand];
+        } else {
+            throw new Error(`Label ${operand} not found`);
+        }
+    }
 
-    console.log(finalCode)
+    if (typeof operand === "number") {
+        return operand;
+    }
+
+    throw new Error(`Invalid operand ${operand}`);
 }
 
 const code = `
