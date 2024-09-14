@@ -7,7 +7,7 @@ export const StatusCodes = {
     "N": 0b00000010, // Negative
     "O": 0b00000100, // Overflow
     "Z": 0b00001000, // Zero
-};  
+};
 
 export class machine {
     registers: Record<RegisterNameType, register>;
@@ -15,7 +15,7 @@ export class machine {
     private memory: Record<number, number> = {};
     private end: boolean = true;
     private inputDevice: () => Promise<number>
-    private outputDevice: (value: number) => Promise<void> 
+    private outputDevice: (value: number) => Promise<void>
     verbose: boolean = false
     private sp: {
         /** Carry */
@@ -28,7 +28,7 @@ export class machine {
         z: number
     }
     constructor(bits: number = 16) {
-        if(bits < 8){
+        if (bits < 8) {
             throw new Error("Bits must be greater than 8");
         }
         this.registers = {
@@ -60,10 +60,10 @@ export class machine {
     addDevice(type: "input", device: () => Promise<number>): void
     addDevice(type: "output", device: (value: number) => Promise<void>): void
     addDevice(type: "input" | "output", device: any) {
-        if(type === "input"){
+        if (type === "input") {
             this.inputDevice = device;
         }
-        if(type === "output"){
+        if (type === "output") {
             this.outputDevice = device;
         }
     }
@@ -80,17 +80,21 @@ export class machine {
     private setSP(field: keyof typeof this.sp, val: number) {
         this.sp[field] = val;
     }
-    
-    private setSPNum(val: number){
-        if(val === 0){
+
+    private getCMPFromSP() {
+        return this.sp.c === 0 && this.sp.n === 0 && this.sp.z === 1;
+    }
+
+    private setSPNum(val: number) {
+        if (val === 0) {
             this.setSP("c", 0);
             this.setSP("n", 0);
             this.setSP("z", 1);
-        } else if(val < 0){
+        } else if (val < 0) {
             this.setSP("c", 1);
             this.setSP("n", 1);
             this.setSP("z", 0);
-        } else if(val > 0){
+        } else if (val > 0) {
             this.setSP("c", 0);
             this.setSP("n", 0);
             this.setSP("z", 0);
@@ -98,24 +102,24 @@ export class machine {
     }
 
     async execute(instructions: instructionPieceType[]) {
-        for(let i = 0; i < instructions.length; i++){
-            this.storeInstructionInMemory(i*2, instructions[i]);
+        for (let i = 0; i < instructions.length; i++) {
+            this.storeInstructionInMemory(i * 2, instructions[i]);
         }
 
         this.registers.PC.setVal(0);
 
-        for(let i = 0; i < instructions.length; i++){
+        for (let i = 0; i < instructions.length; i++) {
             await this.executeInstruction(this.registers.PC.getVal());
             this.logMemoryAndRegisters();
-            if(this.verbose) console.log("");
-            if(this.end) break;
+            if (this.verbose) console.log("");
+            if (this.end) break;
         }
     }
 
-    logMemoryAndRegisters(){
-        if(!this.verbose) return;
+    logMemoryAndRegisters() {
+        if (!this.verbose) return;
         console.log("---MEMORY-BEGIN---")
-        Object.keys(this.memory).map(i => parseInt(i)).sort().forEach((index) => {
+        Object.keys(this.memory).map(i => parseInt(i)).sort((a, b) => a - b).forEach((index) => {
             console.log(`${index} | ${this.memory[index].toString(2).padStart(this.bits, "0")}`);
         });
         console.log("----MEMORY-END----")
@@ -133,12 +137,12 @@ export class machine {
     }
 
     private fetchDecodeInstruction(address: number): instructionPieceType {
-        if(this.verbose) console.log("Fetching instruction at address", address)
+        if (this.verbose) console.log("Fetching instruction at address", address)
         const decoded: instructionPieceType = {
             opcode: this.memory[address],
             operand: this.memory[address + 1]
         }
-        if(this.verbose) console.log(`Decoded: [OPCODE:${lookUpMnemonic(decoded.opcode)}(${decoded.opcode.toString(2).padStart(8, "0")}), OPERAND:${decoded.operand.toString(2).padStart(this.bits, "0")}]`)
+        if (this.verbose) console.log(`Decoded: [OPCODE:${lookUpMnemonic(decoded.opcode)}(${decoded.opcode.toString(2).padStart(8, "0")}), OPERAND:${decoded.operand.toString(2).padStart(this.bits, "0")}]`)
         return decoded
     }
 
@@ -146,7 +150,7 @@ export class machine {
         this.end = false;
         const instruction = this.fetchDecodeInstruction(address);
         let flagJumped = false;
-        switch(instruction.opcode){
+        switch (instruction.opcode) {
             // Data Move
             case MNEMONIC_DATA_MOVE.LDM: {
                 // Load the number into ACC (immediate addressing)
@@ -182,11 +186,7 @@ export class machine {
             }
             case MNEMONIC_DATA_MOVE.STO: {
                 // Store the contents of ACC into the specified address (direct/absolute addressing)
-                this.setMemory(this.registers.MAR.getVal(), this.registers.ACC.getVal());
-                break;
-            }
-            case MNEMONIC_DATA_MOVE.END: {
-                // Return control to the operating system
+                this.setMemory(instruction.operand, this.registers.ACC.getVal());
                 break;
             }
 
@@ -223,6 +223,16 @@ export class machine {
                 this.registers.ACC.setVal(this.registers.ACC.getVal() - instruction.operand);
                 break;
             }
+            case MNEMONIC_ARITHMETIC.DEC: {
+                // Decrement the contents of ACC
+                this.registers.ACC.setVal(this.registers.ACC.getVal() - 1);
+                break;
+            }
+            case MNEMONIC_ARITHMETIC.INC: {
+                // Increment the contents of ACC
+                this.registers.ACC.setVal(this.registers.ACC.getVal() + 1);
+                break;
+            }
 
             // Branching
             case MNEMONIC_BRANCHING.JMP: {
@@ -234,21 +244,31 @@ export class machine {
 
             case MNEMONIC_BRANCHING.JPE: {
                 // Jump to the specified address if comparison is True
-                if(this.registers.ACC.getVal() === 0){
+                if (this.getCMPFromSP()) {
                     flagJumped = true;
                     this.registers.PC.setVal(instruction.operand);
+                }
+                break;
+            }
+            case MNEMONIC_BRANCHING.JPN: {
+                // Jump to the specified address if comparison is False
+                if (!this.getCMPFromSP()) {
+                    flagJumped = true;
+                    this.registers.PC.setVal(instruction.operand);
+                }
+                break;
+            }
+            case MNEMONIC_BRANCHING.JMR: {
+                // Jump to the specified address (relative) if comparison is True
+
+                if (this.getCMPFromSP()) {
+                    flagJumped = true;
+                    this.registers.PC.setVal(this.registers.PC.getVal() + instruction.operand * 2);
                 }
                 break;
             }
 
-            case MNEMONIC_BRANCHING.JPN: {
-                // Jump to the specified address if comparison is False
-                if(this.registers.ACC.getVal() !== 0){
-                    flagJumped = true;
-                    this.registers.PC.setVal(instruction.operand);
-                }
-                break;
-            }
+
 
             case MNEMONIC_BRANCHING.END: {
                 // Return control to the operating system
@@ -269,7 +289,7 @@ export class machine {
                 this.setSPNum(val);
                 break;
             }
-            case MNEMONIC_COMPARE.CMI_ADDRESS: {
+            case MNEMONIC_COMPARE.CMI: {
                 // Compare ACC with contents of the contents of the specified address (indirect addressing)
                 const val = this.registers.ACC.getVal() - this.readMemory(this.readMemory(instruction.operand));
                 this.setSPNum(val);
@@ -281,7 +301,7 @@ export class machine {
             }
         }
 
-        if(!flagJumped){
+        if (!flagJumped) {
             this.registers.PC.setVal(this.registers.PC.getVal() + 2);
         }
     }

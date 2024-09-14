@@ -1,0 +1,1 @@
+export const isAlpha = (string: string) => /^[a-zA-Z]+$/.test(string)
