@@ -1,5 +1,5 @@
-import register, { type RegisterNameType } from "./register";
-import { type instructionPieceType, lookUpMnemonic, MNEMONIC_DATA_MOVE, MNEMONIC_IO, MNEMONIC_ARITHMETIC, MNEMONIC_BRANCHING, MNEMONIC_COMPARE } from "./interpreter";
+import register, { type RegisterNameType, getRegName } from "./register";
+import { type instructionPieceType, lookUpMnemonic, MNEMONIC_DATA_MOVE, MNEMONIC_IO, MNEMONIC_ARITHMETIC, MNEMONIC_BRANCHING, MNEMONIC_COMPARE } from "./instruction";
 
 
 export const StatusCodes = {
@@ -27,6 +27,12 @@ export class machine {
         /** Zero */
         z: number
     }
+    /**
+     * Creates a new machine with the given number of bits.
+     * 
+     * @param bits The number of bits to use for each register.
+     * @throws If the number of bits is less than 8.
+     */
     constructor(bits: number = 16) {
         if (bits < 8) {
             throw new Error("Bits must be greater than 8");
@@ -57,7 +63,19 @@ export class machine {
         }
     }
 
+    /**
+     * Adds an input device to the machine.
+     * 
+     * @param type The type of device to add
+     * @param device The device to add (a function returning a Promise of a number).
+     */
     addDevice(type: "input", device: () => Promise<number>): void
+    /**
+     * Adds an output device to the machine.
+     * 
+     * @param type The type of device to add
+     * @param device The device to add (a function that takes a number and returns a Promise of void). 
+     */
     addDevice(type: "output", device: (value: number) => Promise<void>): void
     addDevice(type: "input" | "output", device: any) {
         if (type === "input") {
@@ -68,43 +86,98 @@ export class machine {
         }
     }
 
+
+    /**
+     * Sets the value at the given memory address.
+     * 
+     * Will deal with overflow by taking only the lowest {@link bits} bits of the given value.
+     * @param address The address to set the value at.
+     * @param value The value to set.
+     */
     setMemory(address: number, value: number) {
         value = parseInt(value.toString(2).slice(0, this.bits), 2); // deal with overflow
         this.memory[address] = value;
     }
 
+    /**
+     * Reads the value at the given memory address.
+     * 
+     * Will return 0 if the address is not in memory.
+     * @param address The address to read the value from.
+     * @returns The value at the given address, or 0 if it is not in memory.
+     */
     readMemory(address: number) {
         return this.memory[address] || 0;
     }
 
-    private setSP(field: keyof typeof this.sp, val: number) {
-        this.sp[field] = val;
+    /**
+     * Sets a field in the Status Register.
+     * 
+     * @param field The field to set.
+     * @param value The value to set it to.
+     */
+    private setStatusRegister(field: keyof typeof this.sp, value: number) {
+        this.sp[field] = value;
     }
 
-    private getCMPFromSP() {
+    /**
+     * Checks if the given CMP result is successful.
+     *
+     * CMP is considered successful if the carry flag is unset, the negative flag is unset, and the zero flag is set **(two given values are equal)**.
+     * @returns True if the CMP result is successful.
+     */
+    private isCMPSuccessful() {
         return this.sp.c === 0 && this.sp.n === 0 && this.sp.z === 1;
     }
 
-    private setSPNum(val: number) {
-        if (val === 0) {
-            this.setSP("c", 0);
-            this.setSP("n", 0);
-            this.setSP("z", 1);
-        } else if (val < 0) {
-            this.setSP("c", 1);
-            this.setSP("n", 1);
-            this.setSP("z", 0);
-        } else if (val > 0) {
-            this.setSP("c", 0);
-            this.setSP("n", 0);
-            this.setSP("z", 0);
+    /**
+     * Sets the Status Register based on the given value.
+     * 
+     * Sets the `Carry`, `Negative`, and `Zero` flags based on the given value.
+     * 
+     * | Value | `Carry` | `Negative` | `Zero` |
+     * | --- | --- | --- | --- |
+     * | `= 0` | 0 | 0 | 1 |
+     * | `< 0` | 1 | 1 | 0 |
+     * | `> 0` | 0 | 0 | 0 |
+     * 
+     * @param value The value to base the Status Register on.
+     */
+    private setStatusRegisterWithNumber(value: number) {
+        if (value === 0) {
+            this.setStatusRegister("c", 0);
+            this.setStatusRegister("n", 0);
+            this.setStatusRegister("z", 1);
+        } else if (value < 0) {
+            this.setStatusRegister("c", 1);
+            this.setStatusRegister("n", 1);
+            this.setStatusRegister("z", 0);
+        } else if (value > 0) {
+            this.setStatusRegister("c", 0);
+            this.setStatusRegister("n", 0);
+            this.setStatusRegister("z", 0);
         }
     }
 
+    /**
+     * Executes the given instructions.
+     * 
+     * Will execute all instructions in the given array. (Simulate FDE cycle until an `END` instruction is reached.)
+     * 
+     * @param instructions The instructions to execute, as an array of {@link instructionPieceType} objects.
+     */
     async execute(instructions: instructionPieceType[]) {
-        for (let i = 0; i < instructions.length; i++) {
-            this.storeInstructionInMemory(i * 2, instructions[i]);
-        }
+        let cursor = 0;
+        instructions.forEach((instruction) => {
+            if (instruction.opcode !== 0xFF) {
+                this.storeInstructionInMemory(cursor, instruction);
+                cursor += 2;
+            }
+            else {
+                this.setMemory(cursor, instruction.operand)
+                cursor += 1;
+            }
+        })
 
         this.registers.PC.setVal(0);
 
@@ -116,11 +189,16 @@ export class machine {
         }
     }
 
+    /**
+     * Logs the current state of the memory and registers.
+     * 
+     * Only logs if {@link verbose} is true.
+     */
     logMemoryAndRegisters() {
         if (!this.verbose) return;
         console.log("---MEMORY-BEGIN---")
         Object.keys(this.memory).map(i => parseInt(i)).sort((a, b) => a - b).forEach((index) => {
-            console.log(`${index} | ${this.memory[index].toString(2).padStart(this.bits, "0")}`);
+            console.log(`${index} | 0x${this.memory[index].toString(16).padStart(this.bits / 4, "0")}`);
         });
         console.log("----MEMORY-END----")
 
@@ -131,21 +209,43 @@ export class machine {
         console.log("---REGISTER-END---")
     }
 
+    /**
+     * Stores the given instruction in memory at the given address.
+     * 
+     * @param address The address to store the instruction at.
+     * @param instruction The instruction to store.
+     */
     storeInstructionInMemory(address: number, instruction: instructionPieceType) {
         this.memory[address] = instruction.opcode;
         this.memory[address + 1] = instruction.operand;
     }
 
+    /**
+     * Fetches the instruction from memory at the given address and decodes it.
+     *
+     * If {@link verbose} is true, logs the decoded instruction.
+     * @param address The address of the instruction to fetch and decode.
+     * @returns The decoded instruction.
+     */
     private fetchDecodeInstruction(address: number): instructionPieceType {
         if (this.verbose) console.log("Fetching instruction at address", address)
         const decoded: instructionPieceType = {
             opcode: this.memory[address],
             operand: this.memory[address + 1]
         }
+        if(decoded.opcode === undefined || decoded.operand === undefined) throw new Error("Fail to fetch instruction at address " + address);
         if (this.verbose) console.log(`Decoded: [OPCODE:${lookUpMnemonic(decoded.opcode)}(${decoded.opcode.toString(2).padStart(8, "0")}), OPERAND:${decoded.operand.toString(2).padStart(this.bits, "0")}]`)
         return decoded
     }
 
+    /**
+     * Executes the instruction at the given address. PC will be incremented by two unless JMP (related) is used
+     * 
+     * This function is an implementation detail, and should not be used directly.
+     * Instead, use the {@link execute} method of the {@link Interpreter} class.
+     * 
+     * @param address The address of the instruction to execute.
+     */
     async executeInstruction(address: number) {
         this.end = false;
         const instruction = this.fetchDecodeInstruction(address);
@@ -230,7 +330,8 @@ export class machine {
             }
             case MNEMONIC_ARITHMETIC.INC: {
                 // Increment the contents of ACC
-                this.registers.ACC.setVal(this.registers.ACC.getVal() + 1);
+                const register = getRegName(instruction.operand);
+                (this.registers as any)[register].setVal((this.registers as any)[register].getVal() + 1);
                 break;
             }
 
@@ -238,13 +339,13 @@ export class machine {
             case MNEMONIC_BRANCHING.JMP: {
                 // Jump to the specified address
                 flagJumped = true;
-                this.registers.PC.setVal(instruction.operand); // reserve one for pc increment
+                this.registers.PC.setVal(instruction.operand);
                 break;
             }
 
             case MNEMONIC_BRANCHING.JPE: {
                 // Jump to the specified address if comparison is True
-                if (this.getCMPFromSP()) {
+                if (this.isCMPSuccessful()) {
                     flagJumped = true;
                     this.registers.PC.setVal(instruction.operand);
                 }
@@ -252,7 +353,7 @@ export class machine {
             }
             case MNEMONIC_BRANCHING.JPN: {
                 // Jump to the specified address if comparison is False
-                if (!this.getCMPFromSP()) {
+                if (!this.isCMPSuccessful()) {
                     flagJumped = true;
                     this.registers.PC.setVal(instruction.operand);
                 }
@@ -261,9 +362,9 @@ export class machine {
             case MNEMONIC_BRANCHING.JMR: {
                 // Jump to the specified address (relative) if comparison is True
 
-                if (this.getCMPFromSP()) {
+                if (this.isCMPSuccessful()) {
                     flagJumped = true;
-                    this.registers.PC.setVal(this.registers.PC.getVal() + instruction.operand * 2);
+                    this.registers.PC.setVal(this.registers.PC.getVal() + instruction.operand);
                 }
                 break;
             }
@@ -280,24 +381,28 @@ export class machine {
             case MNEMONIC_COMPARE.CMP_ADDRESS: {
                 // Compare ACC with contents of the specified address (direct/absolute addressing)
                 const val = this.registers.ACC.getVal() - this.readMemory(instruction.operand);
-                this.setSPNum(val);
+                this.setStatusRegisterWithNumber(val);
                 break;
             }
             case MNEMONIC_COMPARE.CMP_IMMEDIATE: {
                 // Compare ACC with the number n (immediate addressing)
                 const val = this.registers.ACC.getVal() - instruction.operand;
-                this.setSPNum(val);
+                this.setStatusRegisterWithNumber(val);
                 break;
             }
             case MNEMONIC_COMPARE.CMI: {
                 // Compare ACC with contents of the contents of the specified address (indirect addressing)
                 const val = this.registers.ACC.getVal() - this.readMemory(this.readMemory(instruction.operand));
-                this.setSPNum(val);
+                this.setStatusRegisterWithNumber(val);
                 break;
             }
 
+            case 0xFF: {
+                throw new Error("Cannot treat a data type as an instruction: " + instruction.opcode.toString(16));
+            }
+
             default: {
-                throw new Error("Invalid instruction opcode:" + instruction.opcode.toString(16));
+                throw new Error("Invalid instruction opcode: 0x" + instruction.opcode.toString(16));
             }
         }
 
