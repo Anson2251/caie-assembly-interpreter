@@ -1,5 +1,6 @@
 import { suite, it, expect } from 'vitest'
-import { assembler, extractLabels, tokenizeLine, preprocessCode } from '@/libs/interpreter-core/interpreter'
+import { assembler, extractLabels, preprocessCode } from '@/libs/interpreter-core/interpreter'
+import machine from '@/libs/interpreter-core/machine';
 
 const sampleCode = `
         LDM     #0              ; Load 0 into ACC
@@ -16,7 +17,8 @@ loop:   LDX     number          ; Load the number indexed by IX into ACC
         STO     counter         ; Store result in counter
         CMP     #3              ; Compare with 3
         JPN     loop            ; If ACC not equal to 3 then return to start of loop
-
+        LDD     total           ; Load total into ACC
+        OUT
         END                     ; End of program
 
 number: #5                      ; List of three numbers
@@ -29,17 +31,19 @@ total:
 suite("Intreperter - Assembler", () => {
   it("should extract labels", () => {
     const result = extractLabels(preprocessCode(sampleCode));
-    expect(result).toEqual([
-      { index: 4, label: "loop" },
-      { index: 14, label: "number" },
-      { index: 17, label: "counter" },
-      { index: 18, label: "total" }
-    ]);
+    expect(result).toEqual(["loop", "number", "counter", "total"]);
   });
 
-  it("should assemble", () => {
-    const result = assembler(sampleCode);
-    console.log(result);
-    expect(true).toBe(true);
+  it("should assemble", async () => {
+    const byteCode = assembler(sampleCode);
+    console.log(byteCode);
+    let result = -1;
+    const vm = new machine(16);
+    vm.verbose = false;
+    vm.addDevice("output", async (x) => {
+      result = x;
+    });
+    await vm.execute(byteCode);
+    expect(result).toBe(15);
   })
 });

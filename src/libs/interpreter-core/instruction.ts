@@ -17,9 +17,10 @@ export const MNEMONIC_DATA_MOVE = {
     "LDD": 0x01,  // Load the contents of the specified address into ACC (direct/absolute addressing)
     "LDI": 0x02,  // Load the contents of the contents of the given address into ACC (indirect addressing)
     "LDX": 0x03,  // Load the contents of the calculated address into ACC (indexed addressing)
-    "LDR": 0x04,  // Load the number into IX (immediate addressing) or ACC into IX
-    "MOV": 0x05,  // Move the contents of ACC to IX
+    "LDR": 0x04,  // Load the number n into IX (immediate addressing is used)
+    "MOV": 0x05,  // Move the contents of a register to IX
     "STO": 0x06,  // Store the contents of ACC into the specified address (direct/absolute addressing)
+    "LDR_ACC": 0x07   // Load the number in the accumulator into IX
 };
 
 // Mnemonic for IO

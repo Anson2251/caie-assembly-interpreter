@@ -180,12 +180,12 @@ export class machine {
         })
 
         this.registers.PC.setVal(0);
+        this.end = false;
 
-        for (let i = 0; i < instructions.length; i++) {
+        while (!this.end) {
             await this.executeInstruction(this.registers.PC.getVal());
             this.logMemoryAndRegisters();
             if (this.verbose) console.log("");
-            if (this.end) break;
         }
     }
 
@@ -204,7 +204,7 @@ export class machine {
 
         console.log("--REGISTER-BEGIN--")
         Object.keys(this.registers).forEach((key) => {
-            console.log(`${key.padStart(3, " ")}: ${this.registers[key as RegisterNameType].getVal().toString(2).padStart(this.bits, "0")}`);
+            console.log(`${key.padStart(3, " ")}: (0x${this.registers[key as RegisterNameType].getVal().toString(16)}, ${this.registers[key as RegisterNameType].getVal().toString(10)}, 0b${this.registers[key as RegisterNameType].getVal().toString(2).padStart(this.bits, "0")})`);
         })
         console.log("---REGISTER-END---")
     }
@@ -234,7 +234,7 @@ export class machine {
             operand: this.memory[address + 1]
         }
         if(decoded.opcode === undefined || decoded.operand === undefined) throw new Error("Fail to fetch instruction at address " + address);
-        if (this.verbose) console.log(`Decoded: [OPCODE:${lookUpMnemonic(decoded.opcode)}(${decoded.opcode.toString(2).padStart(8, "0")}), OPERAND:${decoded.operand.toString(2).padStart(this.bits, "0")}]`)
+        if (this.verbose) console.log(`Decoded: [OPCODE: ${lookUpMnemonic(decoded.opcode)}(0x${decoded.opcode.toString(16).padStart(2, "0")}), OPERAND:(0x${decoded.operand.toString(16).padStart(this.bits / 4, "0")}, ${decoded.operand.toString(10)}, 0b${decoded.operand.toString(2).padStart(this.bits, "0")})]`)
         return decoded
     }
 
@@ -270,18 +270,25 @@ export class machine {
             }
             case MNEMONIC_DATA_MOVE.LDX: {
                 // Load the contents of the calculated address into ACC (indexed addressing)
-                const calculatedAddress = this.registers.ACC.getVal() + this.registers.IX.getVal();
+                const calculatedAddress = instruction.operand + this.registers.IX.getVal();
                 this.registers.ACC.setVal(this.readMemory(calculatedAddress));
                 break;
             }
             case MNEMONIC_DATA_MOVE.LDR: {
-                // Load the number into IX (immediate addressing) or ACC into IX
+                // Load the number n into IX (immediate addressing is used)
                 this.registers.IX.setVal(instruction.operand);
                 break;
             }
-            case MNEMONIC_DATA_MOVE.MOV: {
-                // Move the contents of ACC to IX
+            // I DO NOT KNOW WHY HODDER EDUCATION'S BOOK USES `LDR ACC` COMMAND EVEN IF `MOV ACC` IS ALSO USED
+            case MNEMONIC_DATA_MOVE.LDR_ACC: {
+                // Load the contents of ACC into IX
                 this.registers.IX.setVal(this.registers.ACC.getVal());
+                break;
+            }
+            case MNEMONIC_DATA_MOVE.MOV: {
+                // Move the contents of a register to IX
+                const registerName = getRegName(instruction.operand);
+                this.registers.IX.setVal((this.registers as any)[registerName].getVal());
                 break;
             }
             case MNEMONIC_DATA_MOVE.STO: {
@@ -382,18 +389,21 @@ export class machine {
                 // Compare ACC with contents of the specified address (direct/absolute addressing)
                 const val = this.registers.ACC.getVal() - this.readMemory(instruction.operand);
                 this.setStatusRegisterWithNumber(val);
+                if(this.verbose) console.log("Compare result: " + this.isCMPSuccessful());
                 break;
             }
             case MNEMONIC_COMPARE.CMP_IMMEDIATE: {
                 // Compare ACC with the number n (immediate addressing)
                 const val = this.registers.ACC.getVal() - instruction.operand;
                 this.setStatusRegisterWithNumber(val);
+                if(this.verbose) console.log("Compare result: " + this.isCMPSuccessful());
                 break;
             }
             case MNEMONIC_COMPARE.CMI: {
                 // Compare ACC with contents of the contents of the specified address (indirect addressing)
                 const val = this.registers.ACC.getVal() - this.readMemory(this.readMemory(instruction.operand));
                 this.setStatusRegisterWithNumber(val);
+                if(this.verbose) console.log("Compare result: " + this.isCMPSuccessful());
                 break;
             }
 

@@ -14,7 +14,6 @@ export function assembler(code: string) {
     const intermediateCode = parseIntermediateCode(lines);
     const finalCode = generateMachineCode(intermediateCode, labels);
 
-    console.log(finalCode);
     return finalCode;
 }
 
@@ -27,8 +26,8 @@ export function assembler(code: string) {
 export function preprocessCode(code: string): string[][] {
     return code.trim().replace("\r", "").split("\n")
         .filter(line => line !== "")  // Ignore empty lines
-        .map((line) => line.split(";")[0].trim().replace(/\s+/g, " "))  // Remove comments and excess whitespace
-        .map((line) => tokenizeLine(line));
+        .map((line) => line.split(";")[0].trim().replace(/\s+/g, " "))  // Remove comments and excess whitespace     
+        .map((line) => tokenizeLine(line))
 }
 
 /**
@@ -48,16 +47,14 @@ export function tokenizeLine(line: string): string[] {
  * @param lines The preprocessed assembly language code.
  * @returns An array of objects, where each object has a "label" property and an "index" property. The "label" property is the label name, and the "index" property is the index of the instruction that follows the label.
  */
-export function extractLabels(lines: string[][]): { label: string, index: number }[] {
-    const labels: { label: string, index: number }[] = [];
-    let instructionIndex = 0;
+export function extractLabels(lines: string[][]): string[] {
+    const labels: string[] = [];
 
     lines.forEach((line) => {
         if (isLabel(line[0])) {
             const label = line[0].slice(0, -1);
-            labels.push({ label, index: instructionIndex });
+            labels.push(label); // Each instruction is 2 bytes (opcode & operand)
         }
-        instructionIndex++;
     });
 
     return labels;
@@ -95,6 +92,11 @@ function parseIntermediateCode(lines: string[][]): intermediateInstructionType[]
             line.unshift("");  // If no label, add an empty string to keep line structure consistent
         }
 
+        if(line[1][0] === "#" || line[1][0] === "&" || line[1][0] === "B"){ // handle values appearing alone
+            line[2] = line[1]
+            line[1] = "";
+        }
+
         const instruction: intermediateInstructionType = {
             label: line[0],
             opcode: resolveOpcode(line[1], line[2]),
@@ -104,7 +106,28 @@ function parseIntermediateCode(lines: string[][]): intermediateInstructionType[]
         intermediateCode.push(instruction);
     }
 
+    console.log(intermediateCode);
+
     return intermediateCode;
+}
+
+function getLabelAddress(intermediateCode: intermediateInstructionType[], label: string): number {
+    let addr = 0;
+    
+    for(let i = 0; i < intermediateCode.length; i++) {
+        if(intermediateCode[i].label.slice(0, -1) === label) {
+            break;
+        }
+
+        // for a value, add 1; for an instruction, add 2
+        if(intermediateCode[i].opcode === "") { 
+            addr += 1;
+        } else {
+            addr += 2;
+        }
+    }
+
+    return addr;
 }
 
 /**
@@ -114,6 +137,8 @@ function parseIntermediateCode(lines: string[][]): intermediateInstructionType[]
  * in the operand. If the operand contains a value prefix (B, #, &), the opcode is in its
  * immediate form. Otherwise, it is in its address form.
  * 
+ * `LDR ACC` instructions are also resolved to `LDR_ACC` command. 
+ * 
  * All other opcodes are returned unchanged.
  * 
  * @param opcode The opcode to resolve.
@@ -121,6 +146,7 @@ function parseIntermediateCode(lines: string[][]): intermediateInstructionType[]
  * @returns The resolved opcode.
  */
 function resolveOpcode(opcode: string, operand: string): string {
+    if(opcode === "LDR" && operand === "ACC") return "LDR_ACC"
     const abbreviated = ["CMP", "ADD", "SUB"];
     const valuePrefix = ["B", "#", "&"];
 
@@ -146,6 +172,10 @@ function resolveOpcode(opcode: string, operand: string): string {
  * @returns The parsed operand, which may be a number or a string.
  */
 function parseOperand(operand: string): number | string {
+    if (RegisterTypes.includes(operand)) {
+        return RegisterTypes.indexOf(operand);
+    }
+
     const valuePrefix = { "#": 10, "&": 16, "B": 2 };
 
     if (!operand) return 0;  // Default operand is 0
@@ -153,10 +183,6 @@ function parseOperand(operand: string): number | string {
     const prefix = operand[0];
     if (Object.keys(valuePrefix).includes(prefix)) {
         return parseInt(operand.slice(1), (valuePrefix as any)[prefix]);
-    }
-
-    if (RegisterTypes.includes(operand)) {
-        return RegisterTypes.indexOf(operand);
     }
 
     return operand;  // Operand could be a label, which will be resolved later
@@ -171,11 +197,14 @@ function parseOperand(operand: string): number | string {
  * @param labels The labels and their corresponding instruction indices.
  * @returns The generated machine code.
  */
-function generateMachineCode(intermediateCode: intermediateInstructionType[], labels: { label: string, index: number }[]): instructionPieceType[] {
-    const labelMap = labels.reduce((acc, label) => {
-        acc[label.label] = label.index;
-        return acc;
-    }, {} as Record<string, number>);
+function generateMachineCode(intermediateCode: intermediateInstructionType[], labels: string[]): instructionPieceType[] {
+    const labelMap = labels.map(label => ({ label, index: getLabelAddress(intermediateCode, label) }))
+        .reduce((acc, label) => {
+            acc[label.label] = label.index;
+            return acc;
+        }, {} as Record<string, number>);
+
+    console.log(labelMap);
 
     return intermediateCode.map(instruction => {
         const newInstruction: instructionPieceType = {
