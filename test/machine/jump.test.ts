@@ -14,7 +14,7 @@ suite('Interpreter-Core-Machine - Jump Instructions', () => {
       { opcode: 0x33, operand: 0 }  // END
     ];
 
-    vm.verbose = true;
+    vm.verbose = false;
 
     await vm.execute(instructions);
     expect(vm.registers.ACC.getVal()).toBe(2); // if it didn't jump, it would be 3
@@ -31,7 +31,7 @@ suite('Interpreter-Core-Machine - Jump Instructions', () => {
       { opcode: 0x33, operand: 0 }  // END
     ];
 
-    vm.verbose = true;
+    vm.verbose = false;
 
     await vm.execute(instructions);
     expect(vm.registers.ACC.getVal()).toBe(5); // if it didn't jump, it would be 6

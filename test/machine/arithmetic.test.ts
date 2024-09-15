@@ -5,12 +5,12 @@ suite('Interpreter-Core-Machine - Arithmetic Instructions', () => {
     it('should add immediate value to ACC (ADD #n)', async () => {
       const vm = new machine(16);
 
-      vm.verbose = true;
+      vm.verbose = false;
   
       const instructions = [
         { opcode: 0x00, operand: 2 }, // LDM #2
         { opcode: 0x21, operand: 3 }, // ADD #3
-        { opcode: 0x07, operand: 0b00000000 }  // END
+        { opcode: 0x33, operand: 0 }  // END
       ];
   
       await vm.execute(instructions);
@@ -24,7 +24,7 @@ suite('Interpreter-Core-Machine - Arithmetic Instructions', () => {
       const instructions = [
         { opcode: 0x00, operand: 4 }, // LDM #4
         { opcode: 0x23, operand: 1 }, // SUB #1
-        { opcode: 0x07, operand: 0 }  // END
+        { opcode: 0x33, operand: 0 }  // END
       ];
   
       await vm.execute(instructions);
