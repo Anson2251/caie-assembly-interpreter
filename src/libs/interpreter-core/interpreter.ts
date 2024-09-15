@@ -106,8 +106,6 @@ function parseIntermediateCode(lines: string[][]): intermediateInstructionType[]
         intermediateCode.push(instruction);
     }
 
-    console.log(intermediateCode);
-
     return intermediateCode;
 }
 
@@ -203,9 +201,7 @@ function generateMachineCode(intermediateCode: intermediateInstructionType[], la
             acc[label.label] = label.index;
             return acc;
         }, {} as Record<string, number>);
-
-    console.log(labelMap);
-
+    
     return intermediateCode.map(instruction => {
         const newInstruction: instructionPieceType = {
             opcode: resolveMnemonic(instruction.opcode),

@@ -36,13 +36,14 @@ suite("Intreperter - Assembler", () => {
 
   it("should assemble", async () => {
     const byteCode = assembler(sampleCode);
-    console.log(byteCode);
+
     let result = -1;
     const vm = new machine(16);
     vm.verbose = false;
     vm.addDevice("output", async (x) => {
       result = x;
     });
+    
     await vm.execute(byteCode);
     expect(result).toBe(15);
   })
