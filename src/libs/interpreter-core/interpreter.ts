@@ -180,7 +180,7 @@ function parseOperand(operand: string): number | string {
 
     const prefix = operand[0];
     if (Object.keys(valuePrefix).includes(prefix)) {
-        return parseInt(operand.slice(1), (valuePrefix as any)[prefix]);
+        return parseInt((operand.slice(1) || "0"), (valuePrefix as any)[prefix]);
     }
 
     return operand;  // Operand could be a label, which will be resolved later
@@ -221,7 +221,10 @@ function generateMachineCode(intermediateCode: intermediateInstructionType[], la
  * @returns The resolved machine code value.
  */
 function resolveMnemonic(opcode: string): number {
-    return (ALL_MNEMONICS as any)[opcode] !== undefined ? (ALL_MNEMONICS as any)[opcode] : 0xFF;
+    if(opcode === "") return 0xFF;
+    const code = (ALL_MNEMONICS as any)[opcode];
+    if(code !== undefined) return code;
+    else throw new Error(`Invalid opcode ${opcode}`);
 }
 
 /**
