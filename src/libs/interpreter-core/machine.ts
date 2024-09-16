@@ -95,7 +95,9 @@ export class machine {
      * @param value The value to set.
      */
     setMemory(address: number, value: number) {
-        value = parseInt(value.toString(2).slice(0, this.bits), 2); // deal with overflow
+        let bin = value.toString(2);
+        bin = bin.length > this.bits ? bin.slice(-this.bits) : bin.padStart(this.bits, "0");
+        value = parseInt(bin, 2); // deal with overflow
         this.memory[address] = value;
     }
 
