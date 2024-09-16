@@ -6,6 +6,7 @@ import { NSplit, NList, NListItem, NTabs, NTabPane, NEmpty, NButton, NInputNumbe
 import { Error, Run } from "@vicons/carbon";
 import { Icon } from "@vicons/utils"
 
+import { debounce } from "@/utils";
 import { assembler } from "@/libs/interpreter-core/interpreter";
 import { machine } from "@/libs/interpreter-core/machine";
 import { type instructionPieceType } from "@/libs/interpreter-core/instruction";
@@ -14,8 +15,6 @@ const assemblyCode = ref("");
 const assemblyCodePlaceHolder = `start:  LDM #0\n        END    ; End of program`;
 const errors = ref<string[]>([]);
 
-let timeout = false;
-const oldCode = ref<instructionPieceType[]>([]);
 const byteCodes = ref<instructionPieceType[]>([]);
 
 const bits = ref(8);
@@ -28,7 +27,6 @@ const inputDevice = async () => {
     }
     return 0;
 }
-
 const outputDevice = async (value: number) => {
     vmOutput.value += `(0x${value.toString(16).padStart(Math.ceil(bits.value / 4), "0")}, ${value.toString(10)}, 0b${value.toString(2).padStart(bits.value, "0")}, CHAR: "${String.fromCharCode(value)}")` + "\n";
 }
@@ -42,33 +40,25 @@ function initVM(): machine{
 }
 
 const vm = ref(initVM());
-watch(bits, () => {vm.value = initVM()});
 
-async function updateByteCodes() {
-    if (!timeout) {
-        timeout = true;
-        errors.value = [];
-        try {
-            await new Promise(resolve => setTimeout(resolve, 200));
-            byteCodes.value = assembler(assemblyCode.value);
-        } catch (e) {
-            console.error(e);
-            errors.value.push(String(e));
-            byteCodes.value = [];
-        } finally {
-            timeout = false;
-        }
-    } else {
-        byteCodes.value = oldCode.value;
+function updateByteCodesDebounced() {
+    errors.value = [];
+    try {
+        byteCodes.value = assembler(assemblyCode.value);
+    } catch (e) {
+        console.error(e);
+        errors.value.push(String(e));
+        byteCodes.value = [];
     }
 }
 
-// Call updateByteCodes when assemblyCode changes
-watch(assemblyCode, updateByteCodes);
+watch(assemblyCode, debounce(updateByteCodesDebounced, 100));
+watch(bits, () => {vm.value = initVM()});
 
-const showByteCodes = computed(() => {
+const shownByteCodes = computed(() => {
+    const padNum = (val: number) => val.toString(16).padStart(Math.ceil(bits.value / 4), "0");
     return byteCodes.value.map((byteCode) => {
-        return `0x${byteCode.opcode.toString(16).padStart(Math.ceil(bits.value / 4), "0")}    0x${byteCode.operand.toString(16).padStart(Math.ceil(bits.value / 4), "0")}`
+        return `0x${padNum(byteCode.opcode)}    0x${padNum(byteCode.operand)}`;
     }).join("\n");
 })
 </script>
@@ -84,7 +74,7 @@ const showByteCodes = computed(() => {
                     </template>
                     <template #2>
                         <Codemirror :indent-with-tab="true" :tab-size="4" class="codeArea" :style="{ height: '100%' }"
-                            :placeholder="'Byte Codes are shown here'" :model-value="showByteCodes" :disabled="true" />
+                            :placeholder="'Byte Codes are shown here'" :model-value="shownByteCodes" :disabled="true" />
                     </template>
                 </n-split>
             </div>

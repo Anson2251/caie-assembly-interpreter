@@ -45,7 +45,7 @@ export function tokenizeLine(line: string): string[] {
  * Extracts labels from the given assembly language code.
  * 
  * @param lines The preprocessed assembly language code.
- * @returns An array of objects, where each object has a "label" property and an "index" property. The "label" property is the label name, and the "index" property is the index of the instruction that follows the label.
+ * @returns An array of labels extracted from the code.
  */
 export function extractLabels(lines: string[][]): string[] {
     const labels: string[] = [];
