@@ -1,5 +1,5 @@
-import { suite, it, expect } from 'vitest'
-import { assembler, extractLabels, preprocessCode } from '@/libs/interpreter-core/interpreter'
+import { suite, it, expect } from 'vitest';
+import { assembler, extractLabels, preprocessCode } from '@/libs/interpreter-core/assembler';
 import machine from '@/libs/interpreter-core/machine';
 
 const sampleCode = `
