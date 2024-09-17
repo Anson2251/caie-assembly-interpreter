@@ -66,3 +66,5 @@ export const ALL_MNEMONICS = {
 export function lookUpMnemonic(opcode: number) {
     return Object.keys(ALL_MNEMONICS).find((key) => (ALL_MNEMONICS as any)[key] === opcode) || "UNKNOWN";
 }
+
+export default ALL_MNEMONICS;

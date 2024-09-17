@@ -7,7 +7,7 @@ import { Error, Run } from "@vicons/carbon";
 import { Icon } from "@vicons/utils"
 
 import { debounce } from "@/utils";
-import { assembler } from "@/libs/interpreter-core/interpreter";
+import { assembler } from "@/libs/interpreter-core/assembler";
 import { machine } from "@/libs/interpreter-core/machine";
 import { type instructionPieceType } from "@/libs/interpreter-core/instruction";
 

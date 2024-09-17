@@ -63,6 +63,10 @@ export class machine {
         }
     }
 
+    getBits() {
+        return this.bits
+    }
+
     /**
      * Adds an input device to the machine.
      * 
