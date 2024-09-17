@@ -1,5 +1,5 @@
 import { suite, it, expect } from 'vitest';
-import machine from "@/libs/interpreter-core/machine"
+import machine from "@/libs/interpreter-core/src/machine"
 
 suite('Interpreter-Core-Machine - Jump Instructions', () => {
   it('should jump to a give address (JMP)', async () => {

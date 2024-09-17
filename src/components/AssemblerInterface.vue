@@ -7,9 +7,9 @@ import { Error, Run } from "@vicons/carbon";
 import { Icon } from "@vicons/utils"
 
 import { debounce } from "@/utils";
-import { assembler } from "@/libs/interpreter-core/assembler";
-import { machine } from "@/libs/interpreter-core/machine";
-import { type instructionPieceType } from "@/libs/interpreter-core/instruction";
+import { assembler } from "@/libs/interpreter-core/src/assembler";
+import { machine } from "@/libs/interpreter-core/src/machine";
+import { type instructionPieceType } from "@/libs/interpreter-core/src/instruction";
 
 const assemblyCode = ref("");
 const assemblyCodePlaceHolder = `start:  LDM #0\n        END    ; End of program`;

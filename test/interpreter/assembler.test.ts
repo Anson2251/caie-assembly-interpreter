@@ -1,6 +1,6 @@
 import { suite, it, expect } from 'vitest';
-import { assembler, extractLabels, preprocessCode } from '@/libs/interpreter-core/assembler';
-import machine from '@/libs/interpreter-core/machine';
+import { assembler, extractLabels, preprocessCode } from '@/libs/interpreter-core/src/assembler';
+import machine from '@/libs/interpreter-core/src/machine';
 
 const sampleCode = `
         LDM     #0              ; Load 0 into ACC

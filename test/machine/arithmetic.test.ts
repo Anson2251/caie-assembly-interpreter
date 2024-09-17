@@ -1,5 +1,5 @@
 import { suite, it, expect } from 'vitest'
-import machine from "@/libs/interpreter-core/machine"
+import machine from "@/libs/interpreter-core/src/machine"
 
 suite('Interpreter-Core-Machine - Arithmetic Instructions', () => {
     it('should add immediate value to ACC (ADD #n)', async () => {

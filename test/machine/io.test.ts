@@ -1,5 +1,5 @@
 import { suite, it, expect } from 'vitest'
-import machine from "@/libs/interpreter-core/machine"
+import machine from "@/libs/interpreter-core/src/machine"
 
 suite('Interpreter-Core-Machine - IO Instructions', () => {
     it('should be able to accept input and output the input value', async () => {

@@ -1,5 +1,5 @@
 import { suite, it, expect } from 'vitest';
-import machine from "@/libs/interpreter-core/machine"
+import machine from "@/libs/interpreter-core/src/machine"
 
 suite('Interpreter-Core-Machine - Data Movement Instructions', () => {
   it('should load immediate value into ACC (LDM)', async () => {
