@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import { Codemirror } from 'vue-codemirror';
-import { NSplit, NList, NListItem, NTabs, NTabPane, NEmpty, NButton, NInputNumber, NSpace, NLog } from "naive-ui";
+import { NSplit, NList, NListItem, NTabs, NTabPane, NEmpty, NButton, NInputNumber, NSpace, NLog, NA } from "naive-ui";
 
-import { Error, Run } from "@vicons/carbon";
+import { Error, Run, LogoGithub } from "@vicons/carbon";
 import { Icon } from "@vicons/utils"
 
 import { debounce } from "@/utils";
@@ -32,8 +32,8 @@ const outputDevice = async (value: number) => {
     vmOutput.value += `(0x${sign}${Math.abs(value).toString(16).padStart(Math.ceil(bits.value / 4), "0")}, ${value.toString(10)}, 0b${sign}${Math.abs(value).toString(2).padStart(bits.value, "0")}, CHAR: "${String.fromCharCode(value)}")` + "\n";
 }
 
-function initVM(): machine{
-    if(bits.value < 8) bits.value = 8;
+function initVM(): machine {
+    if (bits.value < 8) bits.value = 8;
     const m = new machine(bits.value);
     m.addDevice("output", outputDevice);
     m.addDevice("input", inputDevice);
@@ -54,7 +54,7 @@ function updateByteCodesDebounced() {
 }
 
 watch(assemblyCode, debounce(updateByteCodesDebounced, 100));
-watch(bits, () => {vm.value = initVM()});
+watch(bits, () => { vm.value = initVM() });
 
 const shownByteCodes = computed(() => {
     const padNum = (val: number) => val.toString(16).padStart(Math.ceil(bits.value / 4), "0");
@@ -82,21 +82,34 @@ const shownByteCodes = computed(() => {
         </template>
         <template #2>
             <div class="container-bottom">
-                    <n-space class="tools-container">
-                        <n-button type="tertiary" size="small" @click="vm.execute(byteCodes)">
-                            <template #icon>
-                                <Icon :size="24">
-                                    <Run/>
-                                </Icon>
-                            </template>
-                        </n-button>
-                        <label style="display: flex; align-items: center;">Bits:&ensp;
-                        <n-input-number :min="8" v-model:value="bits" size="small" style="width: 64px" :show-button="false" :placeholder="'bits'"> </n-input-number>
+                <n-space class="tools-container">
+                    <n-button type="tertiary" size="small" @click="vm.execute(byteCodes)">
+                        <template #icon>
+                            <Icon :size="24">
+                                <Run />
+                            </Icon>
+                        </template>
+                    </n-button>
+                    <label style="display: flex; align-items: center;">Bits:&ensp;
+                        <n-input-number :min="8" v-model:value="bits" size="small" style="width: 64px"
+                            :show-button="false" :placeholder="'bits'"> </n-input-number>
                     </label>
-                    </n-space>
-                <n-tabs style="padding: 8px; grid-row: 2 / 3; grid-column: 1 / 2;" animated>
+                </n-space>
+                    <n-button quaternary size="small" circle style="float: right; grid-row: 1 / 2; grid-column: 2 / 3;">
+                        <template #icon>
+                        <n-a href="https://github.com/Anson2251/caie-assembly-interpreter">
+                            
+                                <Icon :size="24">
+                                    <LogoGithub />
+                                </Icon>
+                            
+                        </n-a>
+                    </template>
+                    </n-button>
+                
+                <n-tabs style="padding: 8px; grid-row: 2 / 3; grid-column: 1 / 3; border-top: var(--n-resize-trigger-color) 2px solid;" animated>
                     <n-tab-pane name="output" tab="Outputs">
-                        <n-log :log="vmOutput"/>
+                        <n-log :log="vmOutput" />
                     </n-tab-pane>
                     <n-tab-pane name="errors" tab="Errors">
                         <n-list v-if="errors.length > 0">
@@ -130,8 +143,11 @@ const shownByteCodes = computed(() => {
 
 .container-bottom {
     display: grid;
-    grid-template-columns: auto;
+    grid-template-columns: auto 32px;
     grid-template-rows: 32px auto;
+
+    align-items: center;
+    justify-items: left;
 
     width: 100%;
     height: 100%;
@@ -150,7 +166,5 @@ const shownByteCodes = computed(() => {
     align-items: center;
 
     padding: 0px 8px 0px 8px;
-
-    border-bottom: var(--n-resize-trigger-color) 2px solid;
 }
 </style>
