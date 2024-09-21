@@ -1,6 +1,8 @@
 # CAIE Assembly Interpreter
 
-A toy project for learning Assembly language.
+The user interface of the [Assembly Interpreter (Core)](https://github.com/Anson2251/asm-interpreter-core) based on `Vue.js`.
+
+For more information, please refer to the [README](https://github.com/Anson2251/asm-interpreter-core/blob/main/README.md).
 
 ---
 
