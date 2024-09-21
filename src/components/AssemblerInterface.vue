@@ -28,7 +28,8 @@ const inputDevice = async () => {
     return 0;
 }
 const outputDevice = async (value: number) => {
-    vmOutput.value += `(0x${value.toString(16).padStart(Math.ceil(bits.value / 4), "0")}, ${value.toString(10)}, 0b${value.toString(2).padStart(bits.value, "0")}, CHAR: "${String.fromCharCode(value)}")` + "\n";
+    const sign = value < 0 ? "-" : "";
+    vmOutput.value += `(0x${sign}${Math.abs(value).toString(16).padStart(Math.ceil(bits.value / 4), "0")}, ${value.toString(10)}, 0b${sign}${Math.abs(value).toString(2).padStart(bits.value, "0")}, CHAR: "${String.fromCharCode(value)}")` + "\n";
 }
 
 function initVM(): machine{
