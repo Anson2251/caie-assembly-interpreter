@@ -53,6 +53,16 @@ function updateByteCodesDebounced() {
     }
 }
 
+function executeByteCode() {
+    vm.value.execute(byteCodes.value)
+        .then(() => {
+            errors.value = []
+        })
+        .catch((e) => {
+            errors.value.push(String(e));
+        })
+}
+
 watch(assemblyCode, debounce(updateByteCodesDebounced, 100));
 watch(bits, () => { vm.value = initVM() });
 
@@ -83,7 +93,7 @@ const shownByteCodes = computed(() => {
         <template #2>
             <div class="container-bottom">
                 <n-space class="tools-container">
-                    <n-button type="tertiary" size="small" @click="vm.execute(byteCodes)">
+                    <n-button type="tertiary" size="small" @click="executeByteCode">
                         <template #icon>
                             <Icon :size="24">
                                 <Run />
@@ -105,9 +115,8 @@ const shownByteCodes = computed(() => {
                     </template>
                 </n-button>
 
-                <n-tabs
-                    style="padding: 8px; grid-row: 2 / 3; grid-column: 1 / 3; border-top: var(--n-resize-trigger-color) 2px solid;"
-                    animated>
+                <div style="width: 100%; height: 100%;padding-left: 12px; padding-right: 12px; grid-row: 2 / 3; grid-column: 1 / 3; border-top: var(--n-resize-trigger-color) 2px solid;">
+                <n-tabs animated>
                     <n-tab-pane name="output" tab="Outputs">
                         <n-log :log="vmOutput" />
                     </n-tab-pane>
@@ -129,6 +138,7 @@ const shownByteCodes = computed(() => {
                         </n-empty>
                     </n-tab-pane>
                 </n-tabs>
+                </div>
             </div>
         </template>
     </n-split>
