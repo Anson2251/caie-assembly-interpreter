@@ -7,7 +7,7 @@
     "nightwatch.conf.*",
     "playwright.config.*"
   ],
-  "exclude": ["src/libs/interpreter-core/src/cli.ts"],
+  "exclude": ["src/libs/interpreter-core/src/cli-qjs.ts", "src/libs/interpreter-core/src/cli-node.ts"],
   "compilerOptions": {
     "composite": true,
     "noEmit": true,
