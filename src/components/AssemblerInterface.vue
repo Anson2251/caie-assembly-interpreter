@@ -95,19 +95,19 @@ const shownByteCodes = computed(() => {
                             :show-button="false" :placeholder="'bits'"> </n-input-number>
                     </label>
                 </n-space>
-                    <n-button quaternary size="small" circle style="float: right; grid-row: 1 / 2; grid-column: 2 / 3;">
-                        <template #icon>
+                <n-button quaternary size="small" circle style="float: right; grid-row: 1 / 2; grid-column: 2 / 3;">
+                    <template #icon>
                         <n-a href="https://github.com/Anson2251/caie-assembly-interpreter">
-                            
-                                <Icon :size="24">
-                                    <LogoGithub />
-                                </Icon>
-                            
+                            <Icon :size="24">
+                                <LogoGithub />
+                            </Icon>
                         </n-a>
                     </template>
-                    </n-button>
-                
-                <n-tabs style="padding: 8px; grid-row: 2 / 3; grid-column: 1 / 3; border-top: var(--n-resize-trigger-color) 2px solid;" animated>
+                </n-button>
+
+                <n-tabs
+                    style="padding: 8px; grid-row: 2 / 3; grid-column: 1 / 3; border-top: var(--n-resize-trigger-color) 2px solid;"
+                    animated>
                     <n-tab-pane name="output" tab="Outputs">
                         <n-log :log="vmOutput" />
                     </n-tab-pane>
