@@ -24,7 +24,6 @@ const outputDevice = async (value: number) => {
 
 self.onmessage = async (e) => {
     if(e.data.action  === "run"){
-        console.log(e);
         bits = e.data.bits;
         const { code, verbose } = e.data;
         if(bits < 8) throw new Error("Bits must be greater than 8");
@@ -34,8 +33,10 @@ self.onmessage = async (e) => {
         vm.addDevice("output", outputDevice);
         
         vm.verbose = verbose;
-        const output = await vm.execute(code);
-        self.postMessage({ output });
+        await vm.execute(code);
+        self.postMessage({
+            action: "stop"
+        });
     }
     if(e.data.action === "input-reply"){
         getInputMsg(e.data.msg);
