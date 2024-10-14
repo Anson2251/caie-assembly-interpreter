@@ -18,7 +18,7 @@ const inputDevice = () => {
 }
 const outputDevice = async (value: number) => {
     const sign = value < 0 ? "-" : "";
-    const newMsg = `(0x${sign}${Math.abs(value).toString(16).padStart(Math.ceil(bits / 4), "0")}, ${value.toString(10)}, 0b${sign}${Math.abs(value).toString(2).padStart(bits, "0")}, CHAR: "${String.fromCharCode(value)}")` + "\n";
+    const newMsg = `(0x${sign}${Math.abs(value).toString(16).padStart(Math.ceil(bits / 4), "0")}, ${value.toString(10)}, 0b${sign}${Math.abs(value).toString(2).padStart(bits, "0")}, CHAR: "${String.fromCharCode(value)}")`;
     self.postMessage({ action: "output", msg: newMsg });
 }
 
