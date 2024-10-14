@@ -8,63 +8,57 @@ import { Icon } from "@vicons/utils"
 
 import { debounce } from "@/utils";
 import { assembler } from "@/libs/interpreter-core/src/assembler";
-import { machine } from "@/libs/interpreter-core/src/machine";
-import { type instructionPieceType } from "@/libs/interpreter-core/src/instruction";
+
+import { type InstructionPieceType } from "@/libs/interpreter-core/src/instruction";
 
 const assemblyCode = ref("");
 const assemblyCodePlaceHolder = `start:  LDM #0\n        END    ; End of program`;
 const errors = ref<string[]>([]);
 
-const byteCodes = ref<instructionPieceType[]>([]);
+const byteCodes = ref<InstructionPieceType[]>([]);
 
 const bits = ref(8);
 const vmOutput = ref("");
 
-const inputDevice = async () => {
-    const input = prompt("Enter a number", "");
-    if (input !== null) {
-        return parseInt(input);
+const vm = new Worker(
+  new URL('@/libs/vm-worker', import.meta.url),
+  {type: 'module'}
+);
+
+vm.onmessage = (e) => {
+    if(e.data.action === "output"){
+        vmOutput.value += e.data.msg;
     }
-    return 0;
+    if(e.data.action === "input"){
+        vm.postMessage({
+            action: "input-reply",
+            msg: prompt("Input a number: "),
+        })
+    }
 }
-const outputDevice = async (value: number) => {
-    const sign = value < 0 ? "-" : "";
-    vmOutput.value += `(0x${sign}${Math.abs(value).toString(16).padStart(Math.ceil(bits.value / 4), "0")}, ${value.toString(10)}, 0b${sign}${Math.abs(value).toString(2).padStart(bits.value, "0")}, CHAR: "${String.fromCharCode(value)}")` + "\n";
-}
-
-function initVM(): machine {
-    if (bits.value < 8) bits.value = 8;
-    const m = new machine(bits.value);
-    m.addDevice("output", outputDevice);
-    m.addDevice("input", inputDevice);
-    return m;
-}
-
-const vm = ref(initVM());
 
 function updateByteCodesDebounced() {
     errors.value = [];
     try {
         byteCodes.value = assembler(assemblyCode.value);
     } catch (e) {
-        console.error(e);
+        console.log(String(e));
         errors.value.push(String(e));
         byteCodes.value = [];
     }
 }
 
 function executeByteCode() {
-    vm.value.execute(byteCodes.value)
-        .then(() => {
-            errors.value = []
-        })
-        .catch((e) => {
-            errors.value.push(String(e));
-        })
+    console.log(byteCodes.value.map(i => ({...i})), bits.value)
+    vm.postMessage({
+        action: "run",
+        code: byteCodes.value.map(i => ({...i})),
+        bits: bits.value,
+        verbose: false,
+    })
 }
 
 watch(assemblyCode, debounce(updateByteCodesDebounced, 100));
-watch(bits, () => { vm.value = initVM() });
 
 const shownByteCodes = computed(() => {
     const padNum = (val: number) => val.toString(16).padStart(Math.ceil(bits.value / 4), "0");
